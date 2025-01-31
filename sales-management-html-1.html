@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מערכת ניהול מכירות</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        #itemForm, #itemsList {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input, textarea {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin-left: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .delete-btn {
+            background-color: #f44336;
+        }
+        .item {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            position: relative;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+        }
+        .close {
+            color: #aaa;
+            float: left;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="itemForm">
+        <h2>הוספת פריט למכירה</h2>
+        <input type="text" id="itemName" placeholder="שם הפריט" required>
+        <input type="number" id="itemPrice" placeholder="מחיר" required>
+        <input type="tel" id="itemPhone" placeholder="מספר טלפון" required>
+        <input type="password" id="itemPassword" placeholder="סיסמה למחיקה" required>
+        <textarea id="itemDescription" placeholder="תיאור (אופציונלי)"></textarea>
+        <button onclick="addItem()">שמור פריט</button>
+    </div>
+
+    <div id="itemsList">
+        <h2>פריטים למכירה</h2>
+        <div id="items"></div>
+    </div>
+
+    <!-- מודל למחיקת פריט -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>אימות מחיקה</h2>
+            <input type="password" id="deletePassword" placeholder="הזן סיסמה למחיקה">
+            <button onclick="confirmDelete()">אשר מחיקה</button>
+        </div>
+    </div>
+
+    <script>
+        let currentItemToDelete = null;
+        const deleteModal = document.getElementById('deleteModal');
+        const closeModal = document.querySelector('.close');
+
+        // Load items from localStorage on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadItems();
+        });
+
+        function addItem() {
+            const name = document.getElementById('itemName').value;
+            const price = document.getElementById('itemPrice').value;
+            const phone = document.getElementById('itemPhone').value;
+            const password = document.getElementById('itemPassword').value;
+            const description = document.getElementById('itemDescription').value;
+
+            if (!name || !price || !phone || !password) {
+                alert('אנא מלא את כל השדות');
+                return;
+            }
+
+            const item = {
+                id: Date.now().toString(),
+                name,
+                price,
+                phone,
+                password,
+                description
+            };
+
+            // Get existing items or create empty array
+            const items = JSON.parse(localStorage.getItem('salesItems') || '[]');
+            
+            // Add new item
+            items.push(item);
+
+            // Save back to localStorage
+            localStorage.setItem('salesItems', JSON.stringify(items));
+
+            // Clear form
+            document.getElementById('itemName').value = '';
+            document.getElementById('itemPrice').value = '';
+            document.getElementById('itemPhone').value = '';
+            document.getElementById('itemPassword').value = '';
+            document.getElementById('itemDescription').value = '';
+
+            // Reload items list
+            loadItems();
+        }
+
+        function loadItems() {
+            const itemsContainer = document.getElementById('items');
+            const items = JSON.parse(localStorage.getItem('salesItems') || '[]');
+
+            // Clear existing items
+            itemsContainer.innerHTML = '';
+
+            // No items message
+            if (items.length === 0) {
+                itemsContainer.innerHTML = '<p>אין פריטים למכירה</p>';
+                return;
+            }
+
+            // Render items
+            items.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.classList.add('item');
+                itemElement.innerHTML = `
+                    <h3>${item.name}</h3>
+                    <p>מחיר: ${item.price} ₪</p>
+                    <p>טלפון: ${item.phone}</p>
+                    ${item.description ? `<p>תיאור: ${item.description}</p>` : ''}
+                    <button class="delete-btn" onclick="initiateDelete('${item.id}')">מחק פריט</button>
+                `;
+                itemsContainer.appendChild(itemElement);
+            });
+        }
+
+        function initiateDelete(itemId) {
+            currentItemToDelete = itemId;
+            deleteModal.style.display = 'block';
+        }
+
+        closeModal.onclick = function() {
+            deleteModal.style.display = 'none';
+            document.getElementById('deletePassword').value = '';
+        }
+
+        function confirmDelete() {
+            const deletePassword = document.getElementById('deletePassword').value;
+            const items = JSON.parse(localStorage.getItem('salesItems') || '[]');
+            
+            // Find the item
+            const itemIndex = items.findIndex(item => item.id === currentItemToDelete);
+            
+            if (itemIndex === -1) {
+                alert('פריט לא נמצא');
+                return;
+            }
+
+            // Check password
+            if (items[itemIndex].password !== deletePassword) {
+                alert('סיסמה שגויה');
+                return;
+            }
+
+            // Remove item
+            items.splice(itemIndex, 1);
+            localStorage.setItem('salesItems', JSON.stringify(items));
+
+            // Close modal and reload items
+            deleteModal.style.display = 'none';
+            document.getElementById('deletePassword').value = '';
+            loadItems();
+        }
+
+        // Close modal if clicked outside
+        window.onclick = function(event) {
+            if (event.target == deleteModal) {
+                deleteModal.style.display = 'none';
+                document.getElementById('deletePassword').value = '';
+            }
+        }
+    </script>
+</body>
+</html>
